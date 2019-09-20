@@ -1,5 +1,6 @@
 from pieces import King, Queen, Bishop, Knight, Rook, Pawn
 import copy
+from collections import defaultdict
 
 class GameState():
     def __init__(self, board=None, turn='w'):
@@ -48,6 +49,7 @@ class GameState():
         self.update_black_moves()
         
         self.pinned_pieces = set()
+        self.game_history = defaultdict(int)
         self.computer = 'w'
         self.human = 'b'
         self.player_turn = turn
@@ -88,7 +90,7 @@ class GameState():
             else:
                 piece.all_possible_moves(self)
 
-    def update_piece_set(self, side, target):
+    def remove_piece_set(self, side, target):
         if side == 'w':
             for piece in self.white_pieces:
                 if piece == target:
@@ -99,7 +101,12 @@ class GameState():
                 if piece == target:
                     self.black_pieces.remove(piece)
                     break
-            
+
+    def add_piece_set(self, side, added):
+        if side == 'w':
+            self.white_pieces.add(added)
+        else:
+            self.black_pieces.add(added)            
         
 
     def update_white_moves(self):
@@ -135,21 +142,22 @@ class GameState():
 
         possible_moves = piece.all_possible_moves(self)
 
-        if destination[0] != 'C':
+        if destination[0] not in ('C', 'Q', 'R', 'B', 'N'):
             if destination not in possible_moves:
                 raise AssertionError("That is an illegal move.")
 
-            self[int(origin[0])][int(origin[1])].coor = [int(destination[0]),int(destination[1])]                
-            self[int(destination[0])][int(destination[1])] = piece
+            self[int(origin[0])][int(origin[1])].coor = [int(destination[0]),int(destination[1])]
             if self[int(destination[0])][int(destination[1])] != None:
-                self.update_piece_set(self[int(destination[0])][int(destination[1])].side, self[int(destination[0])][int(destination[1])])
+                self.remove_piece_set(self[int(destination[0])][int(destination[1])].side, self[int(destination[0])][int(destination[1])])
+            self[int(destination[0])][int(destination[1])] = piece
+            
             
             if type(piece) in (Pawn, King, Rook):
                 self[int(origin[0])][int(origin[1])].moved = True
                 
             self[int(origin[0])][int(origin[1])] = None
 
-        else:
+        elif destination[0] == 'C':
             if destination not in possible_moves:
                 raise AssertionError("Castling is not possible here.")
             
@@ -169,9 +177,26 @@ class GameState():
                 self[7][int(destination[1:][1])].moved = True
                 self[5][int(destination[1:][1])] = self[7][int(destination[1:][1])]
                 self[7][int(destination[1:][1])] = None
-                
-                
+
+        else:
+            if destination not in possible_moves:
+                raise AssertionError("Promotion is not possible here.")
+
+            origin_pawn_side = self[int(origin[0])][int(origin[1])].side
+            promotion_square = [int(destination[1:][0]), int(destination[1:][1])]
+
+            if   destination[0] == 'Q': self[promotion_square[0]][promotion_square[1]] = Queen(promotion_square, origin_pawn_side)
+            elif destination[0] == 'R': self[promotion_square[0]][promotion_square[1]] = Rook(promotion_square, origin_pawn_side)
+            elif destination[0] == 'B': self[promotion_square[0]][promotion_square[1]] = Bishop(promotion_square, origin_pawn_side)
+            else                      : self[promotion_square[0]][promotion_square[1]] = Knight(promotion_square, origin_pawn_side)
+
+            self.add_piece_set(self[int(origin[0])][int(origin[1])].side, self[promotion_square[0]][promotion_square[1]])
+            self.remove_piece_set(self[int(origin[0])][int(origin[1])].side, self[int(origin[0])][int(origin[1])])
             
+            
+                
+
+        self.game_history[tuple([(i,tuple(j)) for i,j in self.board.items()])] += 1
         if self.player_turn == 'w': self.player_turn = 'b'
         else                      : self.player_turn = 'w'
         
@@ -179,6 +204,10 @@ class GameState():
         return self
 
     def game_over(self):
+        for value in self.game_history.values():
+            if value == 3:
+                return True
+            
         if self.evaluate() in (9999999999999, -9999999999999): return True
         
     def evaluate(self):
@@ -249,23 +278,18 @@ def minimax(game_state: GameState, alpha: int, beta: int, deep=2) -> str:
 
 a = GameState()
 while not a.game_over():
-    print("up here", a.player_turn)
-    result = minimax(a, -99999, 99999, 2)
-    print("FIRST", result)
+    result = minimax(a, -99999, 99999, 3)
     origin, destination = result[0], result[1]
     origin = str(origin[0]) + str(origin[1])
     a.make_move(origin, destination)
     print(a)
     # user_origin = input("What move do you want to make? Origin: ")
     # user_destination = input("To where? Destination: ")
-    print("rightly so", a.player_turn)
-    result = minimax(a, -99999, 99999, 2)
-    print("SECOND", result)
+    result = minimax(a, -99999, 99999, 3)
     origin, destination = result[0], result[1]
     origin = str(origin[0]) + str(origin[1])
     a.make_move(origin, destination)
     print(a)
-    print('passed here')
 
 print(a.evaluate())
 

@@ -9,20 +9,30 @@ class Pawn:
             return 'P'
         return 'p'
 
+    def adding_promotion_options(possible_moves: set, x: str, y: str):
+        possible_moves = possible_moves.union({'Q' + x + y, 'R' + x + y, 'B' + x + y, 'N' + x + y})
+        return possible_moves
+        
     def all_possible_moves(self, game_state):
         possible_moves = set()
         if self.side == 'w':
             if game_state[self.coor[0]][self.coor[1] + 1] == None:
-                possible_moves.add(str(self.coor[0]) + str(self.coor[1] + 1))
+                if self.coor[1] + 1 == 7:
+                    possible_moves = self.self.adding_promotion_options(possible_moves, str(self.coor[0]), str(self.coor[1] + 1))
+                else:
+                    possible_moves.add(str(self.coor[0]) + str(self.coor[1] + 1))
                 if game_state[self.coor[0]][self.coor[1] + 2] == None and self.moved == False:
                     possible_moves.add(str(self.coor[0]) + str(self.coor[1] + 2))
 
             if self.coor[0] - 1 >= 0:
                 if game_state[self.coor[0] - 1][self.coor[1] + 1] != None and \
                 game_state[self.coor[0] - 1][self.coor[1] + 1].side != self.side:
-                    possible_moves.add(str(self.coor[0] - 1) + str(self.coor[1] + 1))
+                    if self.coor[1] + 1 == 7:
+                        possible_moves = self.adding_promotion_options(possible_moves, str(self.coor[0] - 1), str(self.coor[1] + 1))
+                    else:
+                        possible_moves.add(str(self.coor[0] - 1) + str(self.coor[1] + 1))
                     game_state.attack_adder(self.side, self.coor[0] - 1, self.coor[1] + 1)
-                    
+
                 elif game_state[self.coor[0] - 1][self.coor[1] + 1] != None and \
                 game_state[self.coor[0] - 1][self.coor[1] + 1].side == self.side:
                     game_state.attack_adder(self.side, self.coor[0] - 1, self.coor[1] + 1)
@@ -30,7 +40,10 @@ class Pawn:
             if self.coor[0] + 1 <= 7:
                 if game_state[self.coor[0] + 1][self.coor[1] + 1] != None and \
                 game_state[self.coor[0] + 1][self.coor[1] + 1].side != self.side:
-                    possible_moves.add(str(self.coor[0] + 1) + str(self.coor[1] + 1))
+                    if self.coor[1] + 1 == 7:
+                        possible_moves = self.adding_promotion_options(possible_moves, str(self.coor[0] + 1), str(self.coor[1] + 1))
+                    else:
+                        possible_moves.add(str(self.coor[0] + 1) + str(self.coor[1] + 1))
                     game_state.attack_adder(self.side, self.coor[0] + 1, self.coor[1] + 1)
                     
                 elif game_state[self.coor[0] + 1][self.coor[1] + 1] != None and \
@@ -38,15 +51,22 @@ class Pawn:
                     game_state.attack_adder(self.side, self.coor[0] + 1, self.coor[1] + 1)
         else:
             if game_state[self.coor[0]][self.coor[1] - 1] == None:
-                possible_moves.add(str(self.coor[0]) + str(self.coor[1] - 1))
+                if self.coor[1] - 1 == 0:
+                    possible_moves = self.adding_promotion_options(possible_moves, str(self.coor[0]), str(self.coor[1] - 1))
+                else:
+                    possible_moves.add(str(self.coor[0]) + str(self.coor[1] - 1))
                 if game_state[self.coor[0]][self.coor[1] - 2] == None and self.moved == False:
                     possible_moves.add(str(self.coor[0]) + str(self.coor[1] - 2))
 
             if self.coor[0] - 1 >= 0:
                 if game_state[self.coor[0] - 1][self.coor[1] - 1] != None and \
                 game_state[self.coor[0] - 1][self.coor[1] - 1].side != self.side:
-                    possible_moves.add(str(self.coor[0] - 1) + str(self.coor[1] - 1))
+                    if self.coor[1] - 1 == 0:
+                        possible_moves = self.adding_promotion_options(possible_moves, str(self.coor[0] - 1), str(self.coor[1] - 1))
+                    else:
+                        possible_moves.add(str(self.coor[0] - 1) + str(self.coor[1] - 1))
                     game_state.attack_adder(self.side, self.coor[0] - 1, self.coor[1] - 1)
+                    
                 elif game_state[self.coor[0] - 1][self.coor[1] - 1] != None and \
                 game_state[self.coor[0] - 1][self.coor[1] - 1].side == self.side:
                     game_state.attack_adder(self.side, self.coor[0] - 1, self.coor[1] - 1)
@@ -54,7 +74,10 @@ class Pawn:
             if self.coor[0] + 1 <= 7:
                 if game_state[self.coor[0] + 1][self.coor[1] - 1] != None and \
                 game_state[self.coor[0] + 1][self.coor[1] - 1].side != self.side:
-                    possible_moves.add(str(self.coor[0] + 1) + str(self.coor[1] - 1))
+                    if self.coor[1] - 1 == 0:
+                        possible_moves = self.adding_promotion_options(possible_moves, str(self.coor[0] + 1), str(self.coor[1] - 1))
+                    else:
+                        possible_moves.add(str(self.coor[0] + 1) + str(self.coor[1] - 1))
                     game_state.attack_adder(self.side, self.coor[0] + 1, self.coor[1] - 1)
                 elif game_state[self.coor[0] + 1][self.coor[1] - 1] != None and \
                 game_state[self.coor[0] + 1][self.coor[1] - 1].side == self.side:
@@ -156,22 +179,22 @@ class King:
 
         if self.moved == False:
             if self.side == 'w' and '40' not in game_state.black_attack:
-                if game_state[0][0] != None and game_state[0][0].moved == False and \
+                if type(game_state[0][0]) == Rook and game_state[0][0].moved == False and \
                    game_state[1][0] == None and '10' not in game_state.black_attack and \
                    game_state[2][0] == None and '20' not in game_state.black_attack and \
                    game_state[3][0] == None and '30' not in game_state.black_attack:
                     possible_moves.add('C20')
-                if game_state[7][0] != None and game_state[7][0].moved == False and \
+                if type(game_state[7][0]) == Rook and game_state[7][0].moved == False and \
                    game_state[5][0] == None and '50' not in game_state.black_attack and \
                    game_state[6][0] == None and '60' not in game_state.black_attack:
                     possible_moves.add('C60')
             elif self.side == 'b' and '47' not in game_state.white_attack:
-                if game_state[0][7] != None and game_state[0][7].moved == False and \
+                if type(game_state[0][7]) == Rook and game_state[0][7].moved == False and \
                    game_state[1][7] == None and '17' not in game_state.white_attack and \
                    game_state[2][7] == None and '27' not in game_state.white_attack and \
                    game_state[3][7] == None and '37' not in game_state.white_attack:
                     possible_moves.add('C27')
-                if game_state[7][7] != None and game_state[7][7].moved == False and \
+                if type(game_state[7][7]) == Rook and game_state[7][7].moved == False and \
                    game_state[5][7] == None and '57' not in game_state.white_attack and \
                    game_state[6][7] == None and '67' not in game_state.white_attack:
                     possible_moves.add('C67')
