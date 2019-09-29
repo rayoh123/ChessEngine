@@ -1,413 +1,449 @@
-from pieces import King, Queen, Bishop, Knight, Rook, Pawn
-import copy
-from collections import defaultdict
+from collections import namedtuple
 
-class GameState():
-    def __init__(self, board=None, turn='w'):
-        if board == None:
-            self.board = {
-                0: [Rook([0,0], 'w'), Pawn([0,1], 'w'), None, None, None, None, Pawn([0,6], 'b'), Rook([0,7], 'b')],
-                1: [Knight([1,0], 'w'), Pawn([1,1], 'w'), None, None, None, None, Pawn([1,6], 'b'), Knight([1,7], 'b')],
-                2: [Bishop([2,0],'w'), Pawn([2,1], 'w'), None, None, None, None, Pawn([2,6], 'b'), Bishop([2,7],'b')],
-                3: [Queen([3,0], 'w'), Pawn([3,1], 'w'), None, None, None, None, Pawn([3,6], 'b'), Queen([3,7], 'b')],
-                4: [King([4,0], 'w'), Pawn([4,1], 'w'), None, None, None, None, Pawn([4,6], 'b'), King([4,7], 'b')],
-                5: [Bishop([5,0], 'w'), Pawn([5,1], 'w'), None, None, None, None, Pawn([5,6], 'b'), Bishop([5,7],'b')],
-                6: [Knight([6,0], 'w'), Pawn([6,1], 'w'), None, None, None, None, Pawn([6,6], 'b'), Knight([6,7], 'b')],
-                7: [Rook([7,0], 'w'), Pawn([7,1], 'w'), None, None, None, None, Pawn([7,6], 'b'), Rook([7,7], 'b')]
-            }
-        else:
-            self.board = board
 
-        self.white_pieces = set()
-        self.black_pieces = set()
-        for col in self.board.values():
-            for piece in col:
-                if piece != None:
-                    if piece.side == 'w':
-                        self.white_pieces.add(piece)
+# Defining namedtuples for all the different pieces
+Pawn = namedtuple('Pawn', 'name coor side moved')
+Knight = namedtuple('Knight', 'name coor side')
+King = namedtuple('King', 'name coor side moved')
+Bishop = namedtuple('Bishop', 'name coor side')
+Rook = namedtuple('Rook', 'name coor side moved')
+Queen = namedtuple('Queen', 'name coor side')
+
+
+def all_possible_moves(piece: namedtuple, game_state):
+    '''
+    This function finds all the possible moves for a certain piece
+    given the piece and the current GameState as arguments. Then,
+    it returns a set filled with all the possible moves this piece
+    can make. 
+    '''
+    possible_moves = set()
+    
+    if piece.name == 'Pawn':
+        def _adding_promotion_options(possible_moves: set, x: str, y: str):
+            '''
+            This function returns a set of pawn moves that would result in
+            a promotion to a piece. These moves are prefixed with a letter
+            signifying what piece the pawn can promote to.
+            '''
+            possible_moves = possible_moves.union({'Q' + x + y, 'R' + x + y, 'B' + x + y, 'N' + x + y})
+            return possible_moves
+
+        # This if/else statement is necessary because White pawns move up the columns
+        # and Black pawns move down the columns. 
+        if piece.side == 'w':
+            
+            # Considers whether the White pawn, on its first move, can advance forward
+            # by one or two spaces. 
+            if game_state[(piece.coor[0], piece.coor[1] + 1)] == None:
+                if piece.coor[1] + 1 == 7:
+                    possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0]), str(piece.coor[1] + 1))
+                else:
+                    possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 1))
+                if piece.moved == False and game_state[(piece.coor[0], piece.coor[1] + 2)] == None:
+                    possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 2))
+
+            # Considers whether the White pawn can capture to the left.
+            if piece.coor[0] - 1 >= 0:
+                if game_state[(piece.coor[0] - 1, piece.coor[1] + 1)] != None and \
+                game_state[(piece.coor[0] - 1, piece.coor[1] + 1)].side != piece.side:
+                    if piece.coor[1] + 1 == 7:
+                        possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0] - 1), str(piece.coor[1] + 1))
                     else:
-                        self.black_pieces.add(piece)
+                        possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 1))
 
-        self.black_attack = set()
-        for piece in self.black_pieces:
-            if type(piece) == King:
-                piece.update_attack_squares(self)
-            else:
-                piece.all_possible_moves(self)
+            # Considers whether the White pawn can capture to the right.
+            if piece.coor[0] + 1 <= 7:
+                if game_state[(piece.coor[0] + 1, piece.coor[1] + 1)] != None and \
+                game_state[(piece.coor[0] + 1, piece.coor[1] + 1)].side != piece.side:
+                    if piece.coor[1] + 1 == 7:
+                        possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0] + 1), str(piece.coor[1] + 1))
+                    else:
+                        possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 1))
 
-        self.white_attack = set()
-        for piece in self.white_pieces:
-            if type(piece) == King:
-                piece.update_attack_squares(self)
-            else:
-                piece.all_possible_moves(self)
-
-        self.possible_white_moves = set()
-        self.update_white_moves()
-        
-        self.possible_black_moves = set()
-        self.update_black_moves()
-        
-        self.pinned_pieces = set()
-        self.game_history = defaultdict(int)
-        self.computer = 'w'
-        self.human = 'b'
-        self.player_turn = turn
-
-    def __str__(self):
-        string = ' -----------------\n'
-        row = 7
-        for _ in range(8):
-            string += str(row+1) + '|'
-            for col in range(8):
-                if self.board[col][row] != None: string += str(self.board[col][row]) + '|'
-                else                            : string += ' |'
-            string += '\n -----------------\n'
-            row -=1
-        return string + '  a b c d e f g h\n\n\n'
-
-    def __getitem__(self, x):
-        return self.board[x]
-
-    def __iter__(self):
-        iter(self.white_pieces.union(self.black_pieces))
-
-    def copy(self):
-        return GameState(copy.deepcopy(self.board), self.player_turn)
-
-    def recalculate_attack_squares(self):
-        self.black_attack = set()
-        for piece in self.black_pieces:
-            if type(piece) == King:
-                piece.update_attack_squares(self)
-            else:
-                piece.all_possible_moves(self)
-
-        self.white_attack = set()
-        for piece in self.white_pieces:
-            if type(piece) == King:
-                piece.update_attack_squares(self)
-            else:
-                piece.all_possible_moves(self)
-
-    def remove_piece_set(self, side, target):
-        if side == 'w':
-            for piece in self.white_pieces:
-                if piece == target:
-                    self.white_pieces.remove(piece)
-                    break
         else:
-            for piece in self.black_pieces:
-                if piece == target:
-                    self.black_pieces.remove(piece)
-                    break
+            # Considers whether the Black pawn, on its first move, can advance forward
+            # by one or two spaces. 
+            if game_state[(piece.coor[0], piece.coor[1] - 1)] == None:
+                if piece.coor[1] - 1 == 0:
+                    possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0]), str(piece.coor[1] - 1))
+                else:
+                    possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] - 1))
+                if piece.moved == False and game_state[(piece.coor[0], piece.coor[1] - 2)] == None:
+                    possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] - 2))
 
-    def add_piece_set(self, side, added):
-        if side == 'w':
-            self.white_pieces.add(added)
-        else:
-            self.black_pieces.add(added)            
+            # Considers whether the Black pawn can capture to the left.
+            if piece.coor[0] - 1 >= 0:
+                if game_state[(piece.coor[0] - 1, piece.coor[1] - 1)] != None and \
+                game_state[(piece.coor[0] - 1, piece.coor[1] - 1)].side != piece.side:
+                    if piece.coor[1] - 1 == 0:
+                        possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0] - 1), str(piece.coor[1] - 1))
+                    else:
+                        possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 1))
+
+            # Considers whether the Black pawn can capture to the right.
+            if piece.coor[0] + 1 <= 7:
+                if game_state[(piece.coor[0] + 1, piece.coor[1] - 1)] != None and \
+                game_state[(piece.coor[0] + 1, piece.coor[1] - 1)].side != piece.side:
+                    if piece.coor[1] - 1 == 0:
+                        possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0] + 1), str(piece.coor[1] - 1))
+                    else:
+                        possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 1))
+
+        return possible_moves
+                            
+    elif piece.name == 'King':
+        # Having the opposite 
+        if piece.side == 'w': opposite_side = 'b'
+        if piece.side == 'b': opposite_side = 'w'
         
-
-    def update_white_moves(self):
-        self.possible_white_moves = set()
-        for piece in self.white_pieces:
-            if type(piece) != King:
-                self.possible_white_moves = self.possible_white_moves.union(piece.all_possible_moves(self))
-
-        for piece in self.white_pieces:
-            if type(piece) == King:
-                self.possible_white_moves = self.possible_white_moves.union(piece.all_possible_moves(self))
-
-    def update_black_moves(self):
-        self.possible_black_moves = set()
-
-        for piece in self.black_pieces:
-            if type(piece) != King:
-                self.possible_black_moves = self.possible_black_moves.union(piece.all_possible_moves(self))
-
-        for piece in self.black_pieces:
-            if type(piece) == King:
-                self.possible_black_moves = self.possible_black_moves.union(piece.all_possible_moves(self))
-
-
-    def make_move(self, origin, destination):
-        piece = self[int(origin[0])][int(origin[1])]
-
-        if piece == None:
-            raise AssertionError("No piece is at your origin.")
-        if self.player_turn != piece.side:
-            if piece.side == 'w': raise AssertionError(f"It is not White's turn")
-            else                : raise AssertionError(f"It is not Black's turn")
-
-        possible_moves = piece.all_possible_moves(self)
-
-        if destination[0] not in ('C', 'Q', 'R', 'B', 'N'):
-            if destination not in possible_moves:
-                raise AssertionError("That is an illegal move.")
-
-            self[int(origin[0])][int(origin[1])].coor = [int(destination[0]),int(destination[1])]
-            if self[int(destination[0])][int(destination[1])] != None:
-                self.remove_piece_set(self[int(destination[0])][int(destination[1])].side, self[int(destination[0])][int(destination[1])])
-            self[int(destination[0])][int(destination[1])] = piece
+        if piece.coor[0] - 1 >= 0:
+            if str(piece.coor[0] - 1) + str(piece.coor[1]) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] - 1, piece.coor[1])] == None or \
+               game_state[(piece.coor[0] - 1, piece.coor[1])].side != piece.side):
+                possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1]))
             
+            if piece.coor[1] - 1 >= 0:
+                if str(piece.coor[0] - 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] - 1, piece.coor[1] - 1)] == None or \
+               game_state[(piece.coor[0] - 1, piece.coor[1] - 1)].side != piece.side):
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 1))
+
+            if piece.coor[1] + 1 <= 7:
+                if str(piece.coor[0] - 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] - 1, piece.coor[1] + 1)] == None or \
+               game_state[(piece.coor[0] - 1, piece.coor[1] + 1)].side != piece.side):
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 1))
             
-            if type(piece) in (Pawn, King, Rook):
-                self[int(origin[0])][int(origin[1])].moved = True
+        if piece.coor[0] + 1 <= 7:
+            if str(piece.coor[0] + 1) + str(piece.coor[1]) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] + 1, piece.coor[1])] == None or \
+               game_state[(piece.coor[0] + 1, piece.coor[1])].side != piece.side):
+                possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1]))
+            
+            if piece.coor[1] - 1 >= 0:
+                if str(piece.coor[0] + 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] + 1, piece.coor[1] - 1)] == None or \
+               game_state[(piece.coor[0] + 1, piece.coor[1] - 1)].side != piece.side):
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 1))
                 
-            self[int(origin[0])][int(origin[1])] = None
-
-        elif destination[0] == 'C':
-            if destination not in possible_moves:
-                raise AssertionError("Castling is not possible here.")
-            
-            self[4][int(origin[1])].coor = [int(destination[1:][0]),int(destination[1:][1])]
-            self[4][int(origin[1])].moved = True
-            self[int(destination[1:][0])][int(destination[1:][1])] = self[4][int(origin[1])]
-            self[4][int(origin[1])] = None
-            
-
-            if destination[1:][0] == '2':
-                self[0][int(destination[1:][1])].coor = [3, int(destination[1:][1])]
-                self[0][int(destination[1:][1])].moved = True
-                self[3][int(destination[1:][1])] = self[0][int(destination[1:][1])]
-                self[0][int(destination[1:][1])] = None
-            elif destination[1:][0] == '6':
-                self[7][int(destination[1:][1])].coor = [3, int(destination[1:][1])]
-                self[7][int(destination[1:][1])].moved = True
-                self[5][int(destination[1:][1])] = self[7][int(destination[1:][1])]
-                self[7][int(destination[1:][1])] = None
-
-        else:
-            if destination not in possible_moves:
-                raise AssertionError("Promotion is not possible here.")
-
-            origin_pawn_side = self[int(origin[0])][int(origin[1])].side
-            promotion_square = [int(destination[1:][0]), int(destination[1:][1])]
-
-            if   destination[0] == 'Q': self[promotion_square[0]][promotion_square[1]] = Queen(promotion_square, origin_pawn_side)
-            elif destination[0] == 'R': self[promotion_square[0]][promotion_square[1]] = Rook(promotion_square, origin_pawn_side)
-            elif destination[0] == 'B': self[promotion_square[0]][promotion_square[1]] = Bishop(promotion_square, origin_pawn_side)
-            else                      : self[promotion_square[0]][promotion_square[1]] = Knight(promotion_square, origin_pawn_side)
-
-            self.add_piece_set(self[int(origin[0])][int(origin[1])].side, self[promotion_square[0]][promotion_square[1]])
-            self.remove_piece_set(self[int(origin[0])][int(origin[1])].side, self[int(origin[0])][int(origin[1])])
-            
-            
+            if piece.coor[1] + 1 <= 7:
+                if str(piece.coor[0] + 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0] + 1, piece.coor[1] + 1)] == None or \
+               game_state[(piece.coor[0] + 1, piece.coor[1] + 1)].side != piece.side):
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 1))
                 
-
-        self.game_history[tuple([(i,tuple(j)) for i,j in self.board.items()])] += 1
-        if self.player_turn == 'w': self.player_turn = 'b'
-        else                      : self.player_turn = 'w'
-        
-        self.recalculate_attack_squares()
-        return self
-
-    def game_over(self):
-        for value in self.game_history.values():
-            if value == 3:
-                return True
+        if piece.coor[1] + 1 <= 7:
+            if str(piece.coor[0]) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0], piece.coor[1] + 1)] == None or \
+               game_state[(piece.coor[0], piece.coor[1] + 1)].side != piece.side):
+                possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 1))
             
-        if self.evaluate() in (9999999999999, -9999999999999): return True
-        
-    def evaluate(self):
-        white_score = 0
-        black_score = 0
-        values = {
-            Queen: 9,
-            King: 9999,
-            Bishop: 3,
-            Knight: 3,
-            Pawn: 1,
-            Rook:5
-            }
+        if piece.coor[1] - 1 >= 0:
+            if str(piece.coor[0]) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+               (game_state[(piece.coor[0], piece.coor[1] - 1)] == None or \
+               game_state[(piece.coor[0], piece.coor[1] - 1)].side != piece.side): 
+                possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] - 1))
 
-        if sum([values[type(piece)] for piece in self.white_pieces]) - sum([values[type(piece)] for piece in self.black_pieces]) > 1000:
-            return 9999999999999
-        elif sum([values[type(piece)] for piece in self.white_pieces]) - sum([values[type(piece)] for piece in self.black_pieces]) < -1000:
-            return -9999999999999
-        return sum([values[type(piece)] for piece in self.white_pieces]) - sum([values[type(piece)] for piece in self.black_pieces])
-        
+        if piece.moved == False:
+            if piece.side == 'w' and '40' not in game_state.b_attack:
+                if type(game_state[(0, 0)]).__name__ == 'Rook' and game_state[(0, 0)].moved == False and \
+                   game_state[(1, 0)] == None and '10' not in game_state.b_attack and \
+                   game_state[(2, 0)] == None and '20' not in game_state.b_attack and \
+                   game_state[(3, 0)] == None and '30' not in game_state.b_attack:
+                    possible_moves.add('C20')
+                if type(game_state[(7, 0)]).__name__ == 'Rook' and game_state[(7, 0)].moved == False and \
+                   game_state[(5, 0)] == None and '50' not in game_state.b_attack and \
+                   game_state[(6, 0)] == None and '60' not in game_state.b_attack:
+                    possible_moves.add('C60')
+            elif piece.side == 'b' and '47' not in game_state.w_attack:
+                if type(game_state[(0, 7)]).__name__ == 'Rook' and game_state[(0, 7)].moved == False and \
+                   game_state[(1, 7)] == None and '17' not in game_state.w_attack and \
+                   game_state[(2, 7)] == None and '27' not in game_state.w_attack and \
+                   game_state[(3, 7)] == None and '37' not in game_state.w_attack:
+                    possible_moves.add('C27')
+                if type(game_state[(7, 7)]).__name__ == 'Rook' and game_state[(7, 7)].moved == False and \
+                   game_state[(5, 7)] == None and '57' not in game_state.w_attack and \
+                   game_state[(6, 7)] == None and '67' not in game_state.w_attack:
+                    possible_moves.add('C67')
+        return possible_moves
 
-    def attack_adder(self, side, x, y):
-        if side == 'w'  : self.white_attack.add(str(x) + str(y))
-        elif side == 'b': self.black_attack.add(str(x) + str(y))
+    elif piece.name == 'Knight':
+        if piece.coor[0] + 2 <= 7:
+            if piece.coor[1] + 1 <= 7:
+                if game_state[piece.coor[0] + 2, piece.coor[1] + 1] == None:
+                    possible_moves.add(str(piece.coor[0] + 2) + str(piece.coor[1] + 1))
+                elif game_state[piece.coor[0] + 2, piece.coor[1] + 1].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] + 2) + str(piece.coor[1] + 1))
+                    
+            if piece.coor[1] - 1 >= 0:
+                if game_state[piece.coor[0] + 2, piece.coor[1] - 1] == None:
+                    possible_moves.add(str(piece.coor[0] + 2) + str(piece.coor[1] - 1))
+                elif game_state[piece.coor[0] + 2, piece.coor[1] - 1].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] + 2) + str(piece.coor[1] - 1))                 
+                    
+        if piece.coor[0] - 2 >= 0:
+            if piece.coor[1] + 1 <= 7:
+                if game_state[piece.coor[0] - 2, piece.coor[1] + 1] == None:
+                    possible_moves.add(str(piece.coor[0] - 2) + str(piece.coor[1] + 1))
+                elif game_state[piece.coor[0] - 2, piece.coor[1] + 1].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] - 2) + str(piece.coor[1] + 1))
+                    
+            if piece.coor[1] - 1 >= 0:
+                if game_state[piece.coor[0] - 2, piece.coor[1] - 1] == None:
+                    possible_moves.add(str(piece.coor[0] - 2) + str(piece.coor[1] - 1))
+                elif game_state[piece.coor[0] - 2, piece.coor[1] - 1].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] - 2) + str(piece.coor[1] - 1))
+
+        if piece.coor[0] + 1 <= 7:
+            if piece.coor[1] + 2 <= 7:
+                if game_state[piece.coor[0] + 1, piece.coor[1] + 2] == None:
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 2))
+                elif game_state[piece.coor[0] + 1, piece.coor[1] + 2].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 2))
+
+            if piece.coor[1] - 2 >= 0:
+                if game_state[piece.coor[0] + 1, piece.coor[1] - 2] == None:
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 2))
+                elif game_state[piece.coor[0] + 1, piece.coor[1] - 2].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 2))
+
+        if piece.coor[0] - 1 >= 0:
+            if piece.coor[1] + 2 <= 7:
+                if game_state[piece.coor[0] - 1, piece.coor[1] + 2] == None:
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 2))
+                elif game_state[piece.coor[0] - 1, piece.coor[1] + 2].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 2))
+
+            if piece.coor[1] - 2 >= 0:
+                if game_state[piece.coor[0] - 1, piece.coor[1] - 2] == None:
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 2))
+                elif game_state[piece.coor[0] - 1, piece.coor[1] - 2].side != piece.side:
+                    possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 2))
+        return possible_moves
 
 
-def minimax(game_state: GameState, alpha: int, beta: int, deep=2) -> str:
-    def find_end(x: (str, tuple)) -> int:
-        if type(x[2]) == int:
-            return x[2]
-        else:
-            return find_end(x[2])
+    elif piece.name == 'Bishop':
+        for i,j in zip(range(piece.coor[0] - 1, -1, -1), range(piece.coor[1] + 1, 8)):
+            if game_state[i, j] == None:
+                possible_moves.add(str(i) + str(j))
+            elif game_state[i, j].side != piece.side:
+                possible_moves.add(str(i) + str(j))
+                break
+            else:
+                break
+            
+        for i,j in zip(range(piece.coor[0] - 1, -1, -1), range(piece.coor[1] - 1, -1, -1)):
+            if game_state[i, j] == None:
+                possible_moves.add(str(i) + str(j))
+            elif game_state[i, j].side != piece.side:
+                possible_moves.add(str(i) + str(j))
+                break
+            else:
+                break
 
-    if deep == 0:
-        return game_state.evaluate()
+        for i,j in zip(range(piece.coor[0] + 1, 8), range(piece.coor[1] + 1, 8)):
+            if game_state[i, j] == None:
+                possible_moves.add(str(i) + str(j))
+            elif game_state[i, j].side != piece.side:
+                possible_moves.add(str(i) + str(j))
+                break
+            else:
+                break
+            
+        for i,j in zip(range(piece.coor[0] + 1, 8), range(piece.coor[1] - 1, -1, -1)):
+            if game_state[i, j] == None:
+                possible_moves.add(str(i) + str(j))
+            elif game_state[i, j].side != piece.side:
+                possible_moves.add(str(i) + str(j))
+                break
+            else:
+                break
+        return possible_moves
+
+    elif piece.name == 'Rook':
+        possible_moves = set()
+        for idx in range(piece.coor[1] - 1, -1, -1):
+            if game_state[piece.coor[0], idx] == None:
+                possible_moves.add(str(piece.coor[0]) + str(idx))
+            elif game_state[piece.coor[0], idx].side != piece.side:
+                possible_moves.add(str(piece.coor[0]) + str(idx))
+                break
+            else:
+                break
+
+        for idx in range(piece.coor[1] + 1, 8):
+            if game_state[piece.coor[0], idx] == None:
+                possible_moves.add(str(piece.coor[0]) + str(idx))
+            elif game_state[piece.coor[0], idx].side != piece.side:
+                possible_moves.add(str(piece.coor[0]) + str(idx))
+                break
+            else:
+                break
+
+        for i in range(piece.coor[0] - 1, -1, -1):
+            if game_state[i, piece.coor[1]] == None:
+                possible_moves.add(str(i) + str(piece.coor[1]))
+            elif game_state[i, piece.coor[1]].side != piece.side:
+                possible_moves.add(str(i) + str(piece.coor[1]))
+                break
+            else:
+                break
+
+        for i in range(piece.coor[0] + 1, 8):
+            if game_state[i, piece.coor[1]] == None:
+                possible_moves.add(str(i) + str(piece.coor[1]))
+            elif game_state[i, piece.coor[1]].side != piece.side:
+                possible_moves.add(str(i) + str(piece.coor[1]))
+                break
+            else:
+                break
+        return possible_moves
+
+    elif piece.name == 'Queen':
+        return all_possible_moves(Rook('Rook', piece.coor, piece.side, False), game_state).union(all_possible_moves(Bishop('Bishop', piece.coor, piece.side), game_state))
+
     else:
-        turn = game_state.player_turn
-        final = []
+        raise AssertionError("A piece isn't being passed to all_possible_moves")
+
+
+
         
-        if turn == game_state.computer:
-            max_val = -99999
-            for piece in game_state.white_pieces:
-                for move in piece.all_possible_moves(game_state):
-                    temp = (piece.coor, move, minimax(game_state.copy().make_move(str(piece.coor[0]) + str(piece.coor[1]), move), alpha, beta, deep - 1))
-                    final.append(temp)
-                    max_val = max(max_val, find_end(temp))
-                    alpha = max(alpha, max_val)
-                    if beta <= alpha:
-                        break
-                else:
-                    continue
-                break
-            return max(final, key = lambda x:find_end(x))
+
+def update_attack_squares(piece, game_state):
+    if piece.name == 'Pawn':
+        if piece.side == 'w':
+            if piece.coor[0] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] + 1)
+
+            if piece.coor[0] + 1 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] + 1)
         else:
-            min_val = 99999
-            for piece in game_state.black_pieces:
-                for move in piece.all_possible_moves(game_state):
-                    temp = (piece.coor, move, minimax(game_state.copy().make_move(str(piece.coor[0]) + str(piece.coor[1]), move), alpha, beta, deep - 1))
-                    final.append(temp)
-                    min_val = min(min_val, find_end(temp))
-                    alpha = min(alpha, min_val)
-                    if beta <= alpha:
-                        break
-                else:
-                    continue
+            if piece.coor[0] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] - 1)
+
+            if piece.coor[0] + 1 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] - 1)
+
+    elif piece.name == 'King':
+        if piece.coor[0] - 1 >= 0:
+            game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1])
+            
+            if piece.coor[1] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] - 1)
+
+            if piece.coor[1] + 1 <= 7:
+                
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] + 1)
+            
+        if piece.coor[0] + 1 <= 7:
+            game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1])
+            
+            if piece.coor[1] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] - 1)
+                
+            if piece.coor[1] + 1 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] + 1)
+                
+        if piece.coor[1] + 1 <= 7:
+            game_state.attack_adder(piece.side, piece.coor[0], piece.coor[1] + 1)
+            
+        if piece.coor[1] - 1 >= 0:
+            game_state.attack_adder(piece.side, piece.coor[0], piece.coor[1] - 1)
+
+    elif piece.name == 'Knight':
+        if piece.coor[0] + 2 <= 7:
+            if piece.coor[1] + 1 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] + 2, piece.coor[1] + 1)
+                    
+            if piece.coor[1] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] + 2, piece.coor[1] - 1)                    
+                    
+        if piece.coor[0] - 2 >= 0:
+            if piece.coor[1] + 1 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] - 2, piece.coor[1] + 1)
+                    
+            if piece.coor[1] - 1 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] - 2, piece.coor[1] - 1)
+
+        if piece.coor[0] + 1 <= 7:
+            if piece.coor[1] + 2 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] + 2)
+
+            if piece.coor[1] - 2 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] + 1, piece.coor[1] - 2)
+
+        if piece.coor[0] - 1 >= 0:
+            if piece.coor[1] + 2 <= 7:
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] + 2)
+                    
+            if piece.coor[1] - 2 >= 0:
+                game_state.attack_adder(piece.side, piece.coor[0] - 1, piece.coor[1] - 2)
+
+    elif piece.name == 'Bishop':
+        for i,j in zip(range(piece.coor[0] - 1, -1, -1), range(piece.coor[1] + 1, 8)):
+            if game_state[i, j] == None:
+                game_state.attack_adder(piece.side, i, j)
+            else:
+                game_state.attack_adder(piece.side, i, j)
                 break
-            return min(final, key = lambda x:find_end(x))
+            
+        for i,j in zip(range(piece.coor[0] - 1, -1, -1), range(piece.coor[1] - 1, -1, -1)):
+            if game_state[i, j] == None:
+                game_state.attack_adder(piece.side, i, j)
+            else:
+                game_state.attack_adder(piece.side, i, j)
+                break
 
-a = GameState()
-while not a.game_over():
-    result = minimax(a, -99999, 99999, 3)
-    origin, destination = result[0], result[1]
-    origin = str(origin[0]) + str(origin[1])
-    a.make_move(origin, destination)
-    print(a)
-    # user_origin = input("What move do you want to make? Origin: ")
-    # user_destination = input("To where? Destination: ")
-    result = minimax(a, -99999, 99999, 3)
-    origin, destination = result[0], result[1]
-    origin = str(origin[0]) + str(origin[1])
-    a.make_move(origin, destination)
-    print(a)
+        for i,j in zip(range(piece.coor[0] + 1, 8), range(piece.coor[1] + 1, 8)):
+            if game_state[i, j] == None:
+                game_state.attack_adder(piece.side, i, j)
+            else:
+                game_state.attack_adder(piece.side, i, j)
+                break
+            
+        for i,j in zip(range(piece.coor[0] + 1, 8), range(piece.coor[1] - 1, -1, -1)):
+            if game_state[i, j] == None:
+                game_state.attack_adder(piece.side, i, j)
+            else:
+                game_state.attack_adder(piece.side, i, j)
+                break
 
-print(a.evaluate())
+    elif piece.name == 'Rook':
+        possible_moves = set()
+        for idx in range(piece.coor[1] - 1, -1, -1):
+            if game_state[piece.coor[0], idx] == None:
+                game_state.attack_adder(piece.side, piece.coor[0], idx)
+            else:
+                game_state.attack_adder(piece.side, piece.coor[0], idx)
+                break
 
+        for idx in range(piece.coor[1] + 1, 8):
+            if game_state[piece.coor[0], idx] == None:
+                game_state.attack_adder(piece.side, piece.coor[0], idx)
+            else:
+                game_state.attack_adder(piece.side, piece.coor[0], idx)
+                break
 
+        for i in range(piece.coor[0] - 1, -1, -1):
+            if game_state[i, piece.coor[1]] == None:
+                game_state.attack_adder(piece.side, i, piece.coor[1])
+            else:
+                game_state.attack_adder(piece.side, i, piece.coor[1])
+                break
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-a = GameState()
-print(a)
-a.make_move('01','03')
-print(a)
-a.make_move('06', '04')
-print(a)
-a.make_move('00', '02')
-print(a)
-a.make_move('17', '25')
-print(a)
-a.make_move('41', '43')
-print(a)
-a.make_move('07', '05')
-print(a)
-a.make_move('50', '05')        
-print(a)
-a.make_move('16', '14')
-print(a)
-a.make_move('05', '27')
-print(a)
-a.make_move('37', '27')
-print(a)
-a.make_move('30', '74')
-print(a)
-a.make_move('27', '05')
-print(a)
-a.make_move('60', '72')
-print(a)
-a.make_move('14', '13')
-print(a)
-a.make_move('31', '32')
-print(a)
-a.make_move('67', '55')
-print(a)
-a.make_move('40', 'C60')
-print(a)
-a.make_move('66', '65')
-print(a)
-a.make_move('74', '14')
-print(a)
-a.make_move('57', '66')
-print(a)
-a.make_move('14', '16')
-print(a)
-a.make_move('47', 'C67')
-print(a)
+        for i in range(piece.coor[0] + 1, 8):
+            if game_state[i, piece.coor[1]] == None:
+                game_state.attack_adder(piece.side, i, piece.coor[1])
+            else:
+                game_state.attack_adder(piece.side, i, piece.coor[1])
+                break
 
 
+    elif piece.name == 'Queen':
+        update_attack_squares(Rook('Rook', piece.coor, piece.side, False), game_state)
+        update_attack_squares(Bishop('Bishop', piece.coor, piece.side), game_state)
 
-
-
-
-a = GameState()
-print(a)
-a.make_move('01','03')
-print(a)
-a.make_move('06', '04')
-print(a)
-a.make_move('00', '02')
-print(a)
-a.make_move('17', '25')
-print(a)
-a.make_move('41', '43')
-print(a)
-a.make_move('07', '05')
-print(a)
-a.make_move('50', '05')
-print(a)
-a.make_move('16', '14')
-print(a)
-a.make_move('05', '27')
-print(a)
-a.make_move('37', '27')
-print(a)
-a.make_move('30', '74')
-print(a)
-a.make_move('27', '05')
-print(a)
-a.make_move('60', '52')
-print(a)
-a.make_move('47', '37')
-print(a)
-a.make_move('40', 'C60')
-print(a)
-'''
-
+    else:
+        raise AssertionError("A piece isn't being passed to update_attack_squares")
+        
