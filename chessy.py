@@ -9,6 +9,7 @@
 from pieces import King, Queen, Bishop, Knight, Rook, Pawn, update_attack_squares, all_possible_moves
 from collections import defaultdict, namedtuple
 
+
 class GameState():
     def __init__(self, board=None, turn='w', last_one=0, history=None, human='w', computer='b'):
         if board == None:
@@ -29,6 +30,7 @@ class GameState():
              (6, 5) : None, (6, 6) : Pawn('Pawn', (6,6), 'b', False), (6, 7) : Knight('Knight', (6,7), 'b'), (7, 0) : Rook('Rook', (7,0), 'w', False),
              (7, 1) : Pawn('Pawn', (7,1), 'w', False), (7, 2) : None,
              (7, 3) : None, (7, 4) : None, (7, 5) : None, (7, 6) : Pawn('Pawn', (7,6), 'b', False), (7, 7) : Rook('Rook', (7,7), 'b', False)}
+
         else:
             self.board = board
 
@@ -79,7 +81,7 @@ class GameState():
                 elif self.board[(col,row)].name == 'Knight':
                     if self.board[(col,row)].side == 'w': final_string += 'N|'
                     else: final_string += 'n|'
-            final_string += '\n -----------------\n'
+            final_string += '\n -----------------\n a b c d e f g h'
             row -=1
         return final_string
 
@@ -96,11 +98,13 @@ class GameState():
         if turn == None: return GameState(self.board.copy(), self.player_turn, self.last_one, self.game_history.copy())
         else           : return GameState(self.board.copy(), turn, self.last_one, self.game_history.copy())
 
-    def recalculate_attack_squares(self):
+    def recalculate_w_attack_squares(self):
         self.w_attack = set()
-        self.b_attack = set()
         for piece in self.w_pieces:
-            update_attack_squares(piece, self)
+            update_attack_squares(piece, self)        
+        
+    def recalculate_b_attack_squares(self):
+        self.b_attack = set()
         for piece in self.b_pieces:
             update_attack_squares(piece, self)
 
@@ -113,6 +117,13 @@ class GameState():
         getattr(self, added.side + '_pieces').add(added)
 
     def make_move(self, origin, destination):
+        self.past_board = self.board.copy()
+        self.past_turn = self.player_turn
+        self.past_last_one = self.last_one
+        self.last_attacks = set()
+        if self.player_turn == 'w': self.last_attacks = self.w_attack.copy()
+        else                      : self.last_attacks = self.b_attack.copy()
+        
         origin_piece = self[(int(origin[0]), int(origin[1]))]
         if not destination[0].isalpha(): destination_coor = (int(destination[0]), int(destination[1]))
         
@@ -192,27 +203,31 @@ class GameState():
             if self[promotion_square] != None:
                 self.remove_piece_set(self[promotion_square])
 
-            if   destination[0] == 'Q': self.add_piece_set(Queen(promotion_square, origin_pawn_side))
-            elif destination[0] == 'R': self.add_piece_set(Rook(promotion_square, origin_pawn_side, False))
-            elif destination[0] == 'B': self.add_piece_set(Bishop(promotion_square, origin_pawn_side))
-            else                      : self.add_piece_set(Knight(promotion_square, origin_pawn_side))                            
+            if   destination[0] == 'Q': self.add_piece_set(Queen('Queen', promotion_square, origin_pawn_side))
+            elif destination[0] == 'R': self.add_piece_set(Rook('Rook', promotion_square, origin_pawn_side, False))
+            elif destination[0] == 'B': self.add_piece_set(Bishop('Bishop', promotion_square, origin_pawn_side))
+            else                      : self.add_piece_set(Knight('Knight', promotion_square, origin_pawn_side))                            
 
         self.game_history[tuple(self.board.items())] += 1
 
-        self.recalculate_attack_squares()        
         if self.player_turn == 'w': self.player_turn = 'b'
         else                      : self.player_turn = 'w'
         
         return self
 
     def in_check(self, side):
-        if side == 'w': opp_side = 'b'
-        else          : opp_side = 'w'
+        if side == 'w':
+            opp_side = 'b'
+            self.recalculate_b_attack_squares()
+        else          :
+            opp_side = 'w'
+            self.recalculate_w_attack_squares()
         
         king_coor = ''
         for piece in getattr(self, side + '_pieces'):
             if piece.name == 'King':
                 king_coor = str(piece.coor[0]) + str(piece.coor[1])
+                break
 
         if king_coor in getattr(self, opp_side + '_attack'):
             return True
@@ -253,6 +268,7 @@ class GameState():
             'Pawn': 1,
             'Rook':5
             }
+        global hash_store
 
         if self.in_checkmate('b'):
             return 9999999999999
@@ -328,12 +344,8 @@ def minimax(game_state: GameState, alpha: int, beta: int, deep=2) -> str:
             min_val = 999999
             for piece in game_state.b_pieces:
                 for move in all_possible_moves(piece, game_state):
-                    try:
-                        if game_state.copy('b').make_move(str(piece.coor[0]) + str(piece.coor[1]), move).in_check('b'):
-                            continue
-                    except:
-                        print(piece, move, all_possible_moves(piece, game_state))
-                        raise AssertionError
+                    if game_state.copy('b').make_move(str(piece.coor[0]) + str(piece.coor[1]), move).in_check('b'):
+                        continue
                     temp = (tuple(piece.coor), move, minimax(game_state.copy('b').make_move(str(piece.coor[0]) + str(piece.coor[1]), move),
                                                              alpha, beta,
                                                              deep - 1))
@@ -361,7 +373,7 @@ def convert_move(move):
         print("You didn't type the move correctly.")
         raise AssertionError
         
-
+'''
 a = GameState()
 
 def perft(game_state, nodes, counter):
@@ -383,18 +395,17 @@ def perft(game_state, nodes, counter):
                 counter += perft(game_state.copy().make_move(piece.coor, move), nodes - 1, 0)
     return counter
 
-counter = perft(a, 4, 0)
+counter = perft(a, 5, 0)
 print(counter)
-
-
-
-
 '''
+
+
+
 if __name__ == '__main__':
     a = GameState()
     print(a)
     
-    while not a.game_over():        
+    while True:        
         if a.game_over():
             break
 
@@ -408,7 +419,7 @@ if __name__ == '__main__':
                 a.make_move(user_origin, user_destination)
                 break
             except AssertionError:
-                print("That move is illegal")
+                pass
             
         print(a)
         
@@ -416,9 +427,8 @@ if __name__ == '__main__':
             break
         print("The computer is thinking about its move. It will take up to two minutes...")
         result = minimax(a, -99999, 99999, 4)
-        print(result)
         origin, destination = result[0], result[1]
         origin = str(origin[0]) + str(origin[1])
         a.make_move(origin, destination)
         print(a)
-'''
+
