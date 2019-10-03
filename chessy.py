@@ -81,9 +81,9 @@ class GameState():
                 elif self.board[(col,row)].name == 'Knight':
                     if self.board[(col,row)].side == 'w': final_string += 'N|'
                     else: final_string += 'n|'
-            final_string += '\n -----------------\n a b c d e f g h'
+            final_string += '\n -----------------\n'
             row -=1
-        return final_string
+        return final_string +  '  a b c d e f g h\n'
 
     def __getitem__(self, idx):
         return self.board[tuple(idx)]
@@ -425,10 +425,9 @@ if __name__ == '__main__':
         
         if a.game_over():
             break
-        print("The computer is thinking about its move. It will take up to two minutes...")
+        print("The computer is thinking about its move. It will take up to a minute...")
         result = minimax(a, -99999, 99999, 4)
         origin, destination = result[0], result[1]
         origin = str(origin[0]) + str(origin[1])
         a.make_move(origin, destination)
         print(a)
-
