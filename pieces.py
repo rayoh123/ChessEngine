@@ -1,7 +1,5 @@
 from collections import namedtuple
 
-
-# Defining namedtuples for all the different pieces
 Pawn = namedtuple('Pawn', 'name coor side moved')
 Knight = namedtuple('Knight', 'name coor side')
 King = namedtuple('King', 'name coor side moved')
@@ -9,32 +7,15 @@ Bishop = namedtuple('Bishop', 'name coor side')
 Rook = namedtuple('Rook', 'name coor side moved')
 Queen = namedtuple('Queen', 'name coor side')
 
-
-def all_possible_moves(piece: namedtuple, game_state):
-    '''
-    This function finds all the possible moves for a certain piece
-    given the piece and the current GameState as arguments. Then,
-    it returns a set filled with all the possible moves this piece
-    can make. 
-    '''
+def all_possible_moves(piece, game_state):
     possible_moves = set()
     
     if piece.name == 'Pawn':
         def _adding_promotion_options(possible_moves: set, x: str, y: str):
-            '''
-            This function returns a set of pawn moves that would result in
-            a promotion to a piece. These moves are prefixed with a letter
-            signifying what piece the pawn can promote to.
-            '''
             possible_moves = possible_moves.union({'Q' + x + y, 'R' + x + y, 'B' + x + y, 'N' + x + y})
             return possible_moves
-
-        # This if/else statement is necessary because White pawns move up the columns
-        # and Black pawns move down the columns. 
+        
         if piece.side == 'w':
-            
-            # Considers whether the White pawn, on its first move, can advance forward
-            # by one or two spaces. 
             if game_state[(piece.coor[0], piece.coor[1] + 1)] == None:
                 if piece.coor[1] + 1 == 7:
                     possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0]), str(piece.coor[1] + 1))
@@ -43,7 +24,6 @@ def all_possible_moves(piece: namedtuple, game_state):
                 if piece.moved == False and game_state[(piece.coor[0], piece.coor[1] + 2)] == None:
                     possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 2))
 
-            # Considers whether the White pawn can capture to the left.
             if piece.coor[0] - 1 >= 0:
                 if game_state[(piece.coor[0] - 1, piece.coor[1] + 1)] != None and \
                 game_state[(piece.coor[0] - 1, piece.coor[1] + 1)].side != piece.side:
@@ -52,7 +32,6 @@ def all_possible_moves(piece: namedtuple, game_state):
                     else:
                         possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 1))
 
-            # Considers whether the White pawn can capture to the right.
             if piece.coor[0] + 1 <= 7:
                 if game_state[(piece.coor[0] + 1, piece.coor[1] + 1)] != None and \
                 game_state[(piece.coor[0] + 1, piece.coor[1] + 1)].side != piece.side:
@@ -62,8 +41,6 @@ def all_possible_moves(piece: namedtuple, game_state):
                         possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 1))
 
         else:
-            # Considers whether the Black pawn, on its first move, can advance forward
-            # by one or two spaces. 
             if game_state[(piece.coor[0], piece.coor[1] - 1)] == None:
                 if piece.coor[1] - 1 == 0:
                     possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0]), str(piece.coor[1] - 1))
@@ -72,7 +49,6 @@ def all_possible_moves(piece: namedtuple, game_state):
                 if piece.moved == False and game_state[(piece.coor[0], piece.coor[1] - 2)] == None:
                     possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] - 2))
 
-            # Considers whether the Black pawn can capture to the left.
             if piece.coor[0] - 1 >= 0:
                 if game_state[(piece.coor[0] - 1, piece.coor[1] - 1)] != None and \
                 game_state[(piece.coor[0] - 1, piece.coor[1] - 1)].side != piece.side:
@@ -81,7 +57,6 @@ def all_possible_moves(piece: namedtuple, game_state):
                     else:
                         possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 1))
 
-            # Considers whether the Black pawn can capture to the right.
             if piece.coor[0] + 1 <= 7:
                 if game_state[(piece.coor[0] + 1, piece.coor[1] - 1)] != None and \
                 game_state[(piece.coor[0] + 1, piece.coor[1] - 1)].side != piece.side:
@@ -89,58 +64,61 @@ def all_possible_moves(piece: namedtuple, game_state):
                         possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0] + 1), str(piece.coor[1] - 1))
                     else:
                         possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 1))
-
         return possible_moves
                             
     elif piece.name == 'King':
-        # Having the opposite 
-        if piece.side == 'w': opposite_side = 'b'
-        if piece.side == 'b': opposite_side = 'w'
+        if piece.side == 'w':
+            opposite_turn = 'b'
+            game_state.recalculate_b_attack_squares()
+        if piece.side == 'b':
+            opposite_turn = 'w'
+            game_state.recalculate_w_attack_squares()
+
         
         if piece.coor[0] - 1 >= 0:
-            if str(piece.coor[0] - 1) + str(piece.coor[1]) not in getattr(game_state, opposite_side + '_attack') and \
+            if str(piece.coor[0] - 1) + str(piece.coor[1]) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] - 1, piece.coor[1])] == None or \
                game_state[(piece.coor[0] - 1, piece.coor[1])].side != piece.side):
                 possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1]))
             
             if piece.coor[1] - 1 >= 0:
-                if str(piece.coor[0] - 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+                if str(piece.coor[0] - 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] - 1, piece.coor[1] - 1)] == None or \
                game_state[(piece.coor[0] - 1, piece.coor[1] - 1)].side != piece.side):
                     possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] - 1))
 
             if piece.coor[1] + 1 <= 7:
-                if str(piece.coor[0] - 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+                if str(piece.coor[0] - 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] - 1, piece.coor[1] + 1)] == None or \
                game_state[(piece.coor[0] - 1, piece.coor[1] + 1)].side != piece.side):
                     possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 1))
             
         if piece.coor[0] + 1 <= 7:
-            if str(piece.coor[0] + 1) + str(piece.coor[1]) not in getattr(game_state, opposite_side + '_attack') and \
+            if str(piece.coor[0] + 1) + str(piece.coor[1]) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] + 1, piece.coor[1])] == None or \
                game_state[(piece.coor[0] + 1, piece.coor[1])].side != piece.side):
                 possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1]))
             
             if piece.coor[1] - 1 >= 0:
-                if str(piece.coor[0] + 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+                if str(piece.coor[0] + 1) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] + 1, piece.coor[1] - 1)] == None or \
                game_state[(piece.coor[0] + 1, piece.coor[1] - 1)].side != piece.side):
                     possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] - 1))
                 
             if piece.coor[1] + 1 <= 7:
-                if str(piece.coor[0] + 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+                if str(piece.coor[0] + 1) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0] + 1, piece.coor[1] + 1)] == None or \
                game_state[(piece.coor[0] + 1, piece.coor[1] + 1)].side != piece.side):
                     possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 1))
                 
         if piece.coor[1] + 1 <= 7:
-            if str(piece.coor[0]) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_side + '_attack') and \
+            if str(piece.coor[0]) + str(piece.coor[1] + 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0], piece.coor[1] + 1)] == None or \
                game_state[(piece.coor[0], piece.coor[1] + 1)].side != piece.side):
                 possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 1))
             
         if piece.coor[1] - 1 >= 0:
-            if str(piece.coor[0]) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_side + '_attack') and \
+            if str(piece.coor[0]) + str(piece.coor[1] - 1) not in getattr(game_state, opposite_turn + '_attack') and \
                (game_state[(piece.coor[0], piece.coor[1] - 1)] == None or \
                game_state[(piece.coor[0], piece.coor[1] - 1)].side != piece.side): 
                 possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] - 1))
@@ -301,7 +279,8 @@ def all_possible_moves(piece: namedtuple, game_state):
         return possible_moves
 
     elif piece.name == 'Queen':
-        return all_possible_moves(Rook('Rook', piece.coor, piece.side, False), game_state).union(all_possible_moves(Bishop('Bishop', piece.coor, piece.side), game_state))
+        return all_possible_moves(Rook('Rook', piece.coor, piece.side, False), game_state).union(
+            all_possible_moves(Bishop('Bishop', piece.coor, piece.side), game_state))
 
     else:
         raise AssertionError("A piece isn't being passed to all_possible_moves")
@@ -446,6 +425,3 @@ def update_attack_squares(piece, game_state):
 
     else:
         raise AssertionError("A piece isn't being passed to update_attack_squares")
-        
-
-    
