@@ -3,25 +3,8 @@ from PIL import Image, ImageTk
 from pieces import King, Queen, Rook, Bishop, Knight, Pawn
 from chessy import GameState, minimax, convert_move
 import random
-'''
-board = {
-             (0, 0) : Rook('Rook', (0,0), 'w', False), (0, 1) : Pawn('Pawn', (0,1), 'w', False),
-             (0, 2) : None, (0, 3) : None, (0, 4) : None,(0, 5) : None,
-             (0, 6) : Pawn('Pawn', (0,6), 'b', False), (0, 7) : Rook('Rook', (0,7), 'b', False), (1, 0) : Knight('Knight', (1,0), 'w'),
-             (1, 1) : Pawn('Pawn', (1,1), 'w', False), (1, 2) : None, (1, 3) : None, (1, 4) : None, (1, 5) : None, (1, 6) : Pawn('Pawn', (1,6), 'b', False),
-             (1, 7) : Knight('Knight', (1,7), 'b'), (2, 0) : Bishop('Bishop', (2,0), 'w'),
-             (2, 1) : Pawn('Pawn', (2,1), 'w', False), (2, 2) : None, (2, 3) : None, (2, 4) : None, (2, 5) : None, (2, 6) : Pawn('Pawn', (2,6), 'b', False),
-             (2, 7) : Bishop('Bishop', (2,7), 'b'), (3, 0) : Queen('Queen', (3,0), 'w'), (3, 1) : Pawn('Pawn', (3,1), 'w', False), (3, 2) : None, (3, 3) : None, (3, 4) : None,
-             (3, 5) : None, (3, 6) : Pawn('Pawn', (3,6), 'b', False), (3, 7) : Queen('Queen', (3,7), 'b'), (4, 0) : King('King', (4,0), 'w', False),
-             (4, 1) : Pawn('Pawn', (4,1), 'w', False), (4, 2) : None,
-             (4, 3) : None, (4, 4) : None, (4, 5) : None, (4, 6) : Pawn('Pawn', (4,6), 'b', False), (4, 7) : King('King', (4,7), 'b', False),
-             (5, 0) : Bishop('Bishop', (5,0), 'w'),
-             (5, 1) : Pawn('Pawn', (5,1), 'w', False), (5, 2) : None, (5, 3) : None, (5, 4) : None, (5, 5) : None, (5, 6) : Pawn('Pawn', (5,6), 'b', False),
-             (5, 7) : Bishop('Bishop', (5,7), 'b'), (6, 0) : Knight('Knight', (6,0), 'w'), (6, 1) : Pawn('Pawn', (6,1), 'w', False), (6, 2) : None, (6, 3) : None, (6, 4) : None,
-             (6, 5) : None, (6, 6) : Pawn('Pawn', (6,6), 'b', False), (6, 7) : Knight('Knight', (6,7), 'b'), (7, 0) : Rook('Rook', (7,0), 'w', False),
-             (7, 1) : Pawn('Pawn', (7,1), 'w', False), (7, 2) : None,
-             (7, 3) : None, (7, 4) : None, (7, 5) : None, (7, 6) : Pawn('Pawn', (7,6), 'b', False), (7, 7) : Rook('Rook', (7,7), 'b', False)}
-'''
+
+
 pieces = {
     'wKing' : 'white_king.png',
     'wQueen' : 'white_queen.png',
@@ -45,7 +28,7 @@ class ChessEngine:
         self.canvas.pack(side='top')
 
         self.var = IntVar()
-        self.button = Button(master = self.master, text = 'Submit move', font = ('Helvetica', 20), command = self.do)
+        self.button = Button(master = self.master, text = 'Submit move', font = ('Helvetica', 15), command = self.do)
         self.button.pack(side='bottom')
         
         self.d = Entry(self.master)
@@ -118,21 +101,20 @@ class ChessEngine:
             origin, destination = result[0], result[1]
             origin = str(origin[0]) + str(origin[1])
             self.a.make_move(origin, destination)
-            
-
+        self.update_display(self.a.board)
+        self.p.destroy()
+        self.d.destroy()
+        self.button.destroy()
+        if self.a.evaluate() < 0:
+            self.canvas.create_text(100, 560, text="Black won", font=("Times", 30, "bold"))
+        elif self.a.evaluate() > 0:
+            self.canvas.create_text(100, 560, text="White won", font=("Times", 30, "bold"))
+        elif self.a.evaluate() == 0:
+            self.canvas.create_text(100, 560, text="It's a draw", font=("Times", 30, "bold"))
+        
 
 if __name__ == '__main__':
     b = ChessEngine()
     b.run()
     b.master.mainloop()
-
-
-
-
-
-
-
-
-
-
 
