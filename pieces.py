@@ -1,5 +1,6 @@
 from collections import namedtuple
 
+# The pieces will all be namedtuple objects
 Pawn = namedtuple('Pawn', 'name coor side moved')
 Knight = namedtuple('Knight', 'name coor side')
 King = namedtuple('King', 'name coor side moved')
@@ -7,23 +8,40 @@ Bishop = namedtuple('Bishop', 'name coor side')
 Rook = namedtuple('Rook', 'name coor side moved')
 Queen = namedtuple('Queen', 'name coor side')
 
-def all_possible_moves(piece, game_state):
+
+def all_possible_moves(piece: namedtuple, game_state) -> set:
+    '''
+    This function takes in a namedtuple that represents 
+    a piece, and a GameState object that represents the 
+    state of the game. The function then outputs a set 
+    containing all the possible squares this piece can move to.
+    '''
+    
     possible_moves = set()
     
+    # If piece is a pawn
     if piece.name == 'Pawn':
+        
+        # This helper function adds pawn promotion moves
         def _adding_promotion_options(possible_moves: set, x: str, y: str):
             possible_moves = possible_moves.union({'Q' + x + y, 'R' + x + y, 'B' + x + y, 'N' + x + y})
             return possible_moves
         
+        # Different colored pawns need to be dealt with differently because 
+        # white pawns move up the board and black pawns move down.
         if piece.side == 'w':
-            if game_state[(piece.coor[0], piece.coor[1] + 1)] == None:
+            
+            # Checking if the white pawn can advance forwards by one or two squares, or both...
+            if game_state[(piece.coor[0], piece.coor[1] + 1)] == None:                
                 if piece.coor[1] + 1 == 7:
                     possible_moves = _adding_promotion_options(possible_moves, str(piece.coor[0]), str(piece.coor[1] + 1))
                 else:
                     possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 1))
+                    
                 if piece.moved == False and game_state[(piece.coor[0], piece.coor[1] + 2)] == None:
                     possible_moves.add(str(piece.coor[0]) + str(piece.coor[1] + 2))
 
+            # Checking if the white pawn can capture to the left.
             if piece.coor[0] - 1 >= 0:
                 if game_state[(piece.coor[0] - 1, piece.coor[1] + 1)] != None and \
                 game_state[(piece.coor[0] - 1, piece.coor[1] + 1)].side != piece.side:
@@ -32,6 +50,7 @@ def all_possible_moves(piece, game_state):
                     else:
                         possible_moves.add(str(piece.coor[0] - 1) + str(piece.coor[1] + 1))
 
+            # Checking if the white pawn can capture to the right.
             if piece.coor[0] + 1 <= 7:
                 if game_state[(piece.coor[0] + 1, piece.coor[1] + 1)] != None and \
                 game_state[(piece.coor[0] + 1, piece.coor[1] + 1)].side != piece.side:
@@ -40,6 +59,7 @@ def all_possible_moves(piece, game_state):
                     else:
                         possible_moves.add(str(piece.coor[0] + 1) + str(piece.coor[1] + 1))
 
+        # Now do the same for if the pawn is a black pawn.
         else:
             if game_state[(piece.coor[0], piece.coor[1] - 1)] == None:
                 if piece.coor[1] - 1 == 0:
